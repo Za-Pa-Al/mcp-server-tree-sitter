@@ -146,7 +146,7 @@ def update_config_from_env(config: ServerConfig) -> None:
                 orig_value = getattr(config, setting)
                 new_value = _convert_value(env_value, orig_value)
                 setattr(config, setting, new_value)
-                logger.info(f"Applied environment variable {env_name} to {setting}: {orig_value} -> {new_value}")
+                logger.debug(f"Applied environment variable {env_name} to {setting}: {orig_value} -> {new_value}")
             else:
                 logger.warning(f"Unknown top-level setting in environment variable {env_name}: {setting}")
         elif hasattr(config, section):
@@ -157,7 +157,7 @@ def update_config_from_env(config: ServerConfig) -> None:
                 orig_value = getattr(section_obj, setting)
                 new_value = _convert_value(env_value, orig_value)
                 setattr(section_obj, setting, new_value)
-                logger.info(
+                logger.debug(
                     f"Applied environment variable {env_name} to {section}.{setting}: {orig_value} -> {new_value}"
                 )
             else:
@@ -321,7 +321,7 @@ class ConfigurationManager:
 
                 # Update logging configuration using centralized bootstrap module
                 update_log_levels(self._config.log_level)
-                self._logger.info(f"Applied log level {self._config.log_level} to mcp_server_tree_sitter loggers")
+                self._logger.debug(f"Applied log level {self._config.log_level} to mcp_server_tree_sitter loggers")
 
                 self._logger.info("Applied configuration to dependencies")
             except (ImportError, AttributeError) as e:

@@ -54,6 +54,14 @@ def configure_root_logger() -> None:
     # Ensure propagation is preserved
     pkg_logger.propagate = True
 
+    # Ensure all existing loggers' handlers are synchronized
+    for name in logging.root.manager.loggerDict:
+        if name.startswith("mcp_server_tree_sitter"):
+            logger = logging.getLogger(name)
+            # Only synchronize handler levels, don't set logger level
+            for handler in logger.handlers:
+                handler.setLevel(logger.getEffectiveLevel())
+
 
 def update_log_levels(level_name: Union[str, int]) -> None:
     """
@@ -78,6 +86,13 @@ def update_log_levels(level_name: Union[str, int]) -> None:
 
     # Update all handlers on the root package logger
     for handler in pkg_logger.handlers:
+        handler.setLevel(level_value)
+
+    # Also update the root logger for consistency - this helps with debug flag handling
+    # when the module is already imported
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level_value)
+    for handler in root_logger.handlers:
         handler.setLevel(level_value)
 
     # Synchronize handler levels with their logger's effective level

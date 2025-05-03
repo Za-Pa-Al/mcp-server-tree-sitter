@@ -37,10 +37,10 @@ def main() -> int:
 
     # Set up logging level
     if args.debug:
-        # Override with command-line debug flag
-        update_log_levels("DEBUG")
-        # Set environment variable for consistency with other modules
+        # Set environment variable first for consistency
         os.environ["MCP_TS_LOG_LEVEL"] = "DEBUG"
+        # Then update log levels
+        update_log_levels("DEBUG")
         logger.debug("Debug logging enabled")
 
     # Load configuration

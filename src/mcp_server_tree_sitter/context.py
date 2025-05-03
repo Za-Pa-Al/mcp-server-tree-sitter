@@ -115,7 +115,7 @@ class ServerContext:
 
             # Apply log level using centralized bootstrap function
             update_log_levels(log_level)
-            logger.info(f"Applied log level {log_level} to mcp_server_tree_sitter loggers")
+            logger.debug(f"Applied log level {log_level} to mcp_server_tree_sitter loggers")
 
         # Return current config as dict
         return self.config_manager.to_dict()

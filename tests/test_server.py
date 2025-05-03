@@ -122,8 +122,11 @@ def test_configure_with_context_log_level(mock_container):
         mock_root_logger = MagicMock()
         mock_get_logger.return_value = mock_root_logger
 
-        # All logger calls should return the same mock root logger
-        mock_get_logger.side_effect = lambda name: mock_root_logger
+        # Set up side effect to handle both cases: with or without a name
+        def get_logger_side_effect(*args, **kwargs):
+            return mock_root_logger
+
+        mock_get_logger.side_effect = get_logger_side_effect
 
         # Mock logging.root.manager.loggerDict
         with patch(

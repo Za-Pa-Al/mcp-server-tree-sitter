@@ -84,7 +84,7 @@ def configure_with_context(
 
         # Apply log level using already imported update_log_levels
         update_log_levels(log_level)
-        logger.info(f"Applied log level {log_level} to mcp_server_tree_sitter loggers")
+        logger.debug(f"Applied log level {log_level} to mcp_server_tree_sitter loggers")
 
     # Get final configuration
     config = config_manager.get_config()
@@ -128,6 +128,9 @@ def main() -> None:
 
     # Set up debug logging if requested
     if args.debug:
+        # Set environment variable first for consistency
+        os.environ["MCP_TS_LOG_LEVEL"] = "DEBUG"
+        # Then update log levels
         update_log_levels("DEBUG")
         logger.debug("Debug logging enabled")
 
