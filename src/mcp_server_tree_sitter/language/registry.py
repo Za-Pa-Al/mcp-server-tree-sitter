@@ -2,7 +2,7 @@
 
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set
 
 from tree_sitter_language_pack import get_language, get_parser
 
@@ -65,6 +65,11 @@ class LanguageRegistry:
             "exs": "elixir",
         }
 
+        # Discover installed tree-sitter packages
+        self._installed_languages = self._discover_installed_languages()
+        if self._installed_languages:
+            logger.info(f"Discovered {len(self._installed_languages)} installed tree-sitter packages: {sorted(self._installed_languages)}")
+
         # Pre-load preferred languages if configured
         # Get dependencies within the method to avoid circular imports
         try:
@@ -79,6 +84,36 @@ class LanguageRegistry:
         except ImportError:
             # If dependency container isn't available yet, just skip this step
             logger.warning("Skipping pre-loading of languages due to missing dependencies")
+
+    def _discover_installed_languages(self) -> Set[str]:
+        """
+        Discover installed tree-sitter language packages.
+
+        Scans installed Python packages for tree_sitter_* packages.
+
+        Returns:
+            Set of language names (without tree_sitter_ prefix)
+        """
+        discovered = set()
+        try:
+            from importlib.metadata import distributions
+
+            for dist in distributions():
+                # Look for packages starting with tree-sitter- or tree_sitter_
+                name = dist.metadata.get('Name', '')
+                if name.startswith('tree-sitter-') or name.startswith('tree_sitter_'):
+                    # Extract language name
+                    # tree-sitter-python -> python
+                    # tree_sitter_xpp -> xpp
+                    lang_name = name.replace('tree-sitter-', '').replace('tree_sitter_', '').replace('-', '_')
+                    if lang_name and lang_name != 'language_pack':  # Exclude the language pack itself
+                        discovered.add(lang_name)
+                        logger.debug(f"Discovered tree-sitter package: {name} -> language: {lang_name}")
+
+        except Exception as e:
+            logger.warning(f"Failed to discover installed tree-sitter packages: {e}")
+
+        return discovered
 
     def language_for_file(self, file_path: str) -> Optional[str]:
         """
@@ -95,7 +130,12 @@ class LanguageRegistry:
 
     def list_available_languages(self) -> List[str]:
         """
-        List languages that are available via tree-sitter-language-pack.
+        List languages that are available via tree-sitter packages.
+
+        Returns languages from:
+        - Currently loaded languages
+        - Language pack (via extension map)
+        - Discovered installed tree-sitter packages
 
         Returns:
             List of available language identifiers
@@ -106,6 +146,9 @@ class LanguageRegistry:
         # Add all mappable languages from our extension map
         # These correspond to the languages available in tree-sitter-language-pack
         available.update(set(self._language_map.values()))
+
+        # Add dynamically discovered installed packages
+        available.update(self._installed_languages)
 
         # Add frequently used languages that might not be in the map
         common_languages = [
@@ -165,7 +208,9 @@ class LanguageRegistry:
 
     def get_language(self, language_name: str) -> Any:
         """
-        Get or load a language by name from tree-sitter-language-pack.
+        Get or load a language by name from tree-sitter packages.
+
+        First tries tree-sitter-language-pack, then falls back to standalone packages.
 
         Args:
             language_name: Language identifier
@@ -181,7 +226,7 @@ class LanguageRegistry:
                 return self.languages[language_name]
 
             try:
-                # Get language from language pack
+                # Try language pack first
                 # Type ignore: language_name is dynamic but tree-sitter-language-pack
                 # types expect a Literal with specific language names
                 language_obj = get_language(language_name)  # type: ignore
@@ -190,10 +235,31 @@ class LanguageRegistry:
                 language = ensure_language(language_obj)
                 self.languages[language_name] = language
                 return language
-            except Exception as e:
-                raise LanguageNotFoundError(
-                    f"Language {language_name} not available via tree-sitter-language-pack: {e}"
-                ) from e
+            except Exception as pack_error:
+                # Fall back to standalone tree-sitter package
+                try:
+                    import importlib
+
+                    # Try to import tree_sitter_{language_name}
+                    module = importlib.import_module(f"tree_sitter_{language_name}")
+
+                    # Get the language() function from the module
+                    if hasattr(module, 'language'):
+                        language_capsule = module.language()
+                        # Wrap capsule in Language object if needed
+                        language = ensure_language(language_capsule)
+                        self.languages[language_name] = language
+                        logger.info(f"Loaded language {language_name} from standalone package")
+                        return language
+                    else:
+                        raise AttributeError(f"Module tree_sitter_{language_name} has no 'language' function")
+
+                except (ImportError, AttributeError) as standalone_error:
+                    raise LanguageNotFoundError(
+                        f"Language {language_name} not available. "
+                        f"Tried language-pack: {pack_error}. "
+                        f"Tried standalone package: {standalone_error}"
+                    ) from pack_error
 
     def get_parser(self, language_name: str) -> Parser:
         """
