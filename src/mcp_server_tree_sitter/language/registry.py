@@ -89,12 +89,15 @@ class LanguageRegistry:
         """
         Discover installed tree-sitter language packages.
 
-        Scans installed Python packages for tree_sitter_* packages.
+        Scans installed Python packages for tree_sitter_* packages and
+        extracts display names from package metadata.
 
         Returns:
             Set of language names (without tree_sitter_ prefix)
         """
         discovered = set()
+        self._language_display_names: Dict[str, str] = {}  # lang_id -> display name
+
         try:
             from importlib.metadata import distributions
 
@@ -108,12 +111,44 @@ class LanguageRegistry:
                     lang_name = name.replace('tree-sitter-', '').replace('tree_sitter_', '').replace('-', '_')
                     if lang_name and lang_name != 'language_pack':  # Exclude the language pack itself
                         discovered.add(lang_name)
-                        logger.debug(f"Discovered tree-sitter package: {name} -> language: {lang_name}")
+
+                        # Extract display name from Summary if available
+                        summary = dist.metadata.get('Summary', '')
+                        if summary:
+                            # Try to extract clean display name
+                            # "C# grammar for tree-sitter" -> "C#"
+                            # "Tree-sitter grammar for Dynamics AX X++" -> "Dynamics AX X++"
+                            if ' grammar for tree-sitter' in summary:
+                                display_name = summary.split(' grammar for tree-sitter')[0]
+                            elif 'Tree-sitter grammar for ' in summary:
+                                display_name = summary.split('Tree-sitter grammar for ')[1]
+                            elif 'grammar for tree-sitter' in summary.lower():
+                                # More flexible extraction
+                                display_name = summary.split('grammar')[0].strip()
+                            else:
+                                display_name = summary
+
+                            self._language_display_names[lang_name] = display_name
+                            logger.debug(f"Discovered: {name} -> {lang_name} ({display_name})")
+                        else:
+                            logger.debug(f"Discovered: {name} -> {lang_name}")
 
         except Exception as e:
             logger.warning(f"Failed to discover installed tree-sitter packages: {e}")
 
         return discovered
+
+    def get_language_display_name(self, language_name: str) -> str:
+        """
+        Get the display name for a language.
+
+        Args:
+            language_name: Language identifier (e.g., 'xpp', 'c_sharp')
+
+        Returns:
+            Display name if available, otherwise returns the language_name
+        """
+        return self._language_display_names.get(language_name, language_name)
 
     def language_for_file(self, file_path: str) -> Optional[str]:
         """
