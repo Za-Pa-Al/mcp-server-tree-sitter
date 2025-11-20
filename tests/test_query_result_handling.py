@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
 import pytest
+import tree_sitter
 
 from tests.test_helpers import register_project_tool, run_query
 
@@ -184,10 +185,11 @@ def test_direct_query_with_language_pack() -> None:
 
         # Define a query to find the function name
         query_string = "(function_definition name: (identifier) @name)"
-        query = language.query(query_string)
+        query = tree_sitter.Query(language, query_string)
 
         # Execute the query
-        captures = query.captures(root_node)
+        cursor = tree_sitter.QueryCursor(query)
+        captures = cursor.captures(root_node)
 
         # Verify captures
         assert len(captures) > 0, "Query should return captures"

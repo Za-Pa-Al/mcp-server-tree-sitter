@@ -4,6 +4,8 @@ import os
 from collections import Counter, defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import tree_sitter
+
 from ..exceptions import SecurityError
 from ..language.query_templates import get_query_template
 from ..utils.context import MCPContext
@@ -103,8 +105,9 @@ def extract_symbols(
             if "classes" not in symbols:
                 symbols["classes"] = []
 
-            class_query = safe_lang.query(queries["classes"])
-            class_matches = class_query.captures(tree.root_node)
+            class_query = tree_sitter.Query(safe_lang, queries["classes"])
+            cursor = tree_sitter.QueryCursor(class_query)
+            class_matches = cursor.captures(tree.root_node)
 
             # Process class locations to identify their boundaries
             process_symbol_matches(class_matches, "classes", symbols, source_bytes, tree)
@@ -129,8 +132,9 @@ def extract_symbols(
             if symbol_type not in symbols:
                 symbols[symbol_type] = []
 
-            query = safe_lang.query(query_string)
-            matches = query.captures(tree.root_node)
+            query = tree_sitter.Query(safe_lang, query_string)
+            cursor = tree_sitter.QueryCursor(query)
+            matches = cursor.captures(tree.root_node)
 
             process_symbol_matches(
                 matches,
@@ -150,8 +154,9 @@ def extract_symbols(
                     name: (aliased_import)) @import
                 """
 
-                aliased_query = safe_lang.query(aliased_query_string)
-                aliased_matches = aliased_query.captures(tree.root_node)
+                aliased_query = tree_sitter.Query(safe_lang, aliased_query_string)
+                cursor = tree_sitter.QueryCursor(aliased_query)
+                aliased_matches = cursor.captures(tree.root_node)
 
                 for match in aliased_matches:
                     node = None
@@ -189,8 +194,9 @@ def extract_symbols(
 
                 # Additionally, run a query to get all aliased imports directly
                 alias_query_string = "(aliased_import) @alias"
-                alias_query = safe_lang.query(alias_query_string)
-                alias_matches = alias_query.captures(tree.root_node)
+                alias_query = tree_sitter.Query(safe_lang, alias_query_string)
+                cursor = tree_sitter.QueryCursor(alias_query)
+                alias_matches = cursor.captures(tree.root_node)
 
                 for match in alias_matches:
                     node = None
@@ -633,8 +639,9 @@ def find_dependencies(
         tree, source_bytes = parse_with_cached_tree(abs_path, language, safe_lang)
 
         # Execute query
-        query = safe_lang.query(query_string)
-        matches = query.captures(tree.root_node)
+        query = tree_sitter.Query(safe_lang, query_string)
+        cursor = tree_sitter.QueryCursor(query)
+        matches = cursor.captures(tree.root_node)
 
         # Organize imports by type
         imports: Dict[str, List[str]] = defaultdict(list)
@@ -751,8 +758,9 @@ def find_dependencies(
         if language == "python":
             # Look for aliased imports directly
             aliased_query_string = "(aliased_import) @alias"
-            aliased_query = safe_lang.query(aliased_query_string)
-            aliased_matches = aliased_query.captures(tree.root_node)
+            aliased_query = tree_sitter.Query(safe_lang, aliased_query_string)
+            cursor = tree_sitter.QueryCursor(aliased_query)
+            aliased_matches = cursor.captures(tree.root_node)
 
             # Process aliased imports
             for match in aliased_matches:
