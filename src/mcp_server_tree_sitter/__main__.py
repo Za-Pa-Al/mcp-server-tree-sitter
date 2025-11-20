@@ -62,6 +62,13 @@ def main() -> int:
         logger.error(f"Error loading configuration: {e}")
         return 1
 
+    # Register capabilities and tools
+    from .capabilities import register_capabilities
+    from .tools.registration import register_tools
+
+    register_capabilities(mcp)
+    register_tools(mcp, global_context)
+
     # Run the server
     try:
         logger.info("Starting MCP Tree-sitter Server (with state persistence)")
