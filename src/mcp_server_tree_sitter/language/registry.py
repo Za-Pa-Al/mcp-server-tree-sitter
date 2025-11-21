@@ -161,7 +161,17 @@ class LanguageRegistry:
             Language identifier or None if unknown
         """
         ext = file_path.split(".")[-1].lower() if "." in file_path else ""
-        return self._language_map.get(ext)
+
+        # First check static map
+        if ext in self._language_map:
+            return self._language_map[ext]
+
+        # Then check if extension matches a discovered language directly
+        # This allows .xpo files to map to 'xpo' language automatically
+        if ext in self._installed_languages:
+            return ext
+
+        return None
 
     def list_available_languages(self) -> List[str]:
         """
@@ -281,8 +291,9 @@ class LanguageRegistry:
                     # Get the language() function from the module
                     if hasattr(module, 'language'):
                         language_capsule = module.language()
-                        # Wrap capsule in Language object if needed
-                        language = ensure_language(language_capsule)
+                        # Wrap capsule in Language object
+                        from tree_sitter import Language as TS_Language
+                        language = ensure_language(TS_Language(language_capsule))
                         self.languages[language_name] = language
                         logger.info(f"Loaded language {language_name} from standalone package")
                         return language
